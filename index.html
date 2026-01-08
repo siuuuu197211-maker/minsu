@@ -1,1 +1,247 @@
+<style>
+    body { margin: 0; overflow: hidden; background: #000; font-family: 'Arial', sans-serif; user-select: none; }
+    
+    /* 로딩 스크린 */
+    #loading-screen {
+        position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+        background: #1b1b1b; display: flex; flex-direction: column;
+        justify-content: center; align-items: center; z-index: 999; color: white;
+    }
+    #progress-bar-container { width: 300px; height: 10px; background: #333; margin-top: 20px; border-radius: 5px; overflow: hidden; }
+    #progress-bar { width: 0%; height: 100%; background: #de9b35; transition: width 0.1s; }
+    #progress-text { margin-top: 10px; color: #888; font-size: 14px; }
+    
+    /* UI 레이어 */
+    #ui-layer { display: none; pointer-events: none; position: absolute; top: 0; left: 0; width: 100%; height: 100%; }
+    
+    /* ★ 다이내믹 크로스헤어 */
+    #crosshair-container {
+        position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+        width: 40px; height: 40px; display: flex; justify-content: center; align-items: center;
+    }
+    .ch-line {
+        position: absolute; background: #00ff00; transition: all 0.05s ease-out;
+        box-shadow: 0 0 2px rgba(0,0,0,0.8);
+    }
+    .ch-h { width: 10px; height: 2px; } /* 가로 */
+    .ch-v { width: 2px; height: 10px; } /* 세로 */
 
+    /* ★ 킬 피드 (우측 상단) */
+    #kill-feed {
+        position: absolute; top: 20px; right: 20px;
+        display: flex; flex-direction: column; align-items: flex-end; gap: 5px;
+    }
+    .kill-msg {
+        background: linear-gradient(90deg, rgba(0,0,0,0) 0%, rgba(0,0,0,0.7) 100%);
+        color: white; padding: 5px 15px; border-right: 4px solid #de9b35;
+        font-size: 14px; font-weight: bold; opacity: 1; transition: opacity 0.5s;
+        text-shadow: 1px 1px 0 #000;
+        animation: slideIn 0.3s ease-out;
+    }
+    @keyframes slideIn { from { transform: translateX(50px); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+
+    /* HUD 등 기존 스타일 유지... */
+    #hud {
+        position: absolute; bottom: 40px; left: 40px; right: 40px;
+        display: flex; justify-content: space-between; align-items: flex-end;
+        color: white; text-shadow: 2px 2px 0 #000;
+    }
+    .stat-box { display: flex; align-items: center; gap: 15px; }
+    .icon { font-size: 28px; }
+    #health-text { font-size: 36px; font-weight: bold; }
+    #money-text { color: #2ecc71; font-size: 32px; font-weight: bold; margin-right: 20px;}
+    #ammo-text { font-size: 48px; font-weight: bold; color: #de9b35; }
+    #ammo-sub { font-size: 24px; color: #aaa; margin-left: 10px; }
+
+    /* 구매 메뉴 (기존 유지) */
+    #buy-menu {
+        display: none; pointer-events: auto; position: absolute; top: 50%; left: 50%;
+        transform: translate(-50%, -50%); width: 800px; height: 600px;
+        background: rgba(30, 30, 30, 0.95); border: 1px solid #444; color: white;
+        padding: 20px; box-shadow: 0 0 50px rgba(0,0,0,0.8); z-index: 100;
+    }
+    /* (나머지 CSS는 기존과 동일하게 유지하거나 필요시 복붙) */
+    #buy-header { display: flex; justify-content: space-between; border-bottom: 2px solid #de9b35; padding-bottom: 10px; margin-bottom: 20px; }
+    .buy-category { margin-bottom: 20px; }
+    .buy-category h3 { color: #aaa; font-size: 16px; margin-bottom: 10px; text-transform: uppercase; }
+    .item-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+    .buy-btn {
+        background: #2b2b2b; border: 1px solid #444; color: white;
+        padding: 15px; text-align: left; cursor: pointer; transition: 0.2s;
+        display: flex; flex-direction: column; justify-content: space-between; height: 80px;
+    }
+    .buy-btn:hover { background: #3a3a3a; border-color: #de9b35; }
+    .buy-btn:active { background: #de9b35; color: black; }
+    .buy-btn .name { font-weight: bold; font-size: 14px; }
+    .buy-btn .price { color: #2ecc71; font-size: 14px; margin-top: 5px; }
+    .buy-btn.disabled { opacity: 0.5; cursor: not-allowed; }
+    #close-hint { position: absolute; bottom: 20px; right: 20px; color: #888; font-size: 12px; }
+    
+    #debug-coords { position: absolute; top: 10px; right: 10px; color: #ffff00; font-family: monospace; font-size: 16px; font-weight: bold; text-shadow: 1px 1px 2px black; }
+</style>
+
+<body>
+    <div id="loading-screen">
+        <h1>COUNTER-STRIKE 2</h1>
+        <div id="progress-bar-container"><div id="progress-bar"></div></div>
+        <p id="progress-text">Initializing...</p>
+    </div>
+
+    <div id="buy-menu">
+        <div id="buy-header"><h2>BUY MENU</h2><h2 id="menu-money">$ 800</h2></div>
+        <div class="buy-category">
+            <h3>Rifles</h3>
+            <div class="item-grid">
+                <button class="buy-btn" onclick="window.buyItem('ak47', 2700)"><span class="name">AK-47</span><span class="price">$2700</span></button>
+                <button class="buy-btn disabled"><span class="name">M4A1-S (Sold Out)</span><span class="price">$2900</span></button>
+            </div>
+        </div>
+        <div id="close-hint">Press 'B' or 'ESC' to close</div>
+    </div>
+
+    <div id="ui-layer">
+        <div id="crosshair-container">
+            <div class="ch-line ch-h"></div>
+            <div class="ch-line ch-v"></div>
+        </div>
+        
+        <div id="debug-coords">POS: 0, 0</div>
+        
+        <div id="kill-feed"></div>
+
+        <div id="hud">
+            <div class="stat-box"><span class="icon">✚</span> <span id="health-text">100</span></div>
+            <div class="stat-box">
+                <span id="money-text">$ 800</span>
+                <span id="ammo-text">--</span> <span id="ammo-sub">/ --</span>
+            </div>
+        </div>
+    </div>
+
+    <script type="module" src="/src/main.js"></script>
+</body><<<<<<< HEAD
+
+=======
+<style>
+    body { margin: 0; overflow: hidden; background: #000; font-family: 'Arial', sans-serif; user-select: none; }
+    
+    /* 로딩 스크린 */
+    #loading-screen {
+        position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+        background: #1b1b1b; display: flex; flex-direction: column;
+        justify-content: center; align-items: center; z-index: 999; color: white;
+    }
+    #progress-bar-container { width: 300px; height: 10px; background: #333; margin-top: 20px; border-radius: 5px; overflow: hidden; }
+    #progress-bar { width: 0%; height: 100%; background: #de9b35; transition: width 0.1s; }
+    #progress-text { margin-top: 10px; color: #888; font-size: 14px; }
+    
+    /* UI 레이어 */
+    #ui-layer { display: none; pointer-events: none; position: absolute; top: 0; left: 0; width: 100%; height: 100%; }
+    
+    /* ★ 다이내믹 크로스헤어 */
+    #crosshair-container {
+        position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+        width: 40px; height: 40px; display: flex; justify-content: center; align-items: center;
+    }
+    .ch-line {
+        position: absolute; background: #00ff00; transition: all 0.05s ease-out;
+        box-shadow: 0 0 2px rgba(0,0,0,0.8);
+    }
+    .ch-h { width: 10px; height: 2px; } /* 가로 */
+    .ch-v { width: 2px; height: 10px; } /* 세로 */
+
+    /* ★ 킬 피드 (우측 상단) */
+    #kill-feed {
+        position: absolute; top: 20px; right: 20px;
+        display: flex; flex-direction: column; align-items: flex-end; gap: 5px;
+    }
+    .kill-msg {
+        background: linear-gradient(90deg, rgba(0,0,0,0) 0%, rgba(0,0,0,0.7) 100%);
+        color: white; padding: 5px 15px; border-right: 4px solid #de9b35;
+        font-size: 14px; font-weight: bold; opacity: 1; transition: opacity 0.5s;
+        text-shadow: 1px 1px 0 #000;
+        animation: slideIn 0.3s ease-out;
+    }
+    @keyframes slideIn { from { transform: translateX(50px); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+
+    /* HUD 등 기존 스타일 유지... */
+    #hud {
+        position: absolute; bottom: 40px; left: 40px; right: 40px;
+        display: flex; justify-content: space-between; align-items: flex-end;
+        color: white; text-shadow: 2px 2px 0 #000;
+    }
+    .stat-box { display: flex; align-items: center; gap: 15px; }
+    .icon { font-size: 28px; }
+    #health-text { font-size: 36px; font-weight: bold; }
+    #money-text { color: #2ecc71; font-size: 32px; font-weight: bold; margin-right: 20px;}
+    #ammo-text { font-size: 48px; font-weight: bold; color: #de9b35; }
+    #ammo-sub { font-size: 24px; color: #aaa; margin-left: 10px; }
+
+    /* 구매 메뉴 (기존 유지) */
+    #buy-menu {
+        display: none; pointer-events: auto; position: absolute; top: 50%; left: 50%;
+        transform: translate(-50%, -50%); width: 800px; height: 600px;
+        background: rgba(30, 30, 30, 0.95); border: 1px solid #444; color: white;
+        padding: 20px; box-shadow: 0 0 50px rgba(0,0,0,0.8); z-index: 100;
+    }
+    /* (나머지 CSS는 기존과 동일하게 유지하거나 필요시 복붙) */
+    #buy-header { display: flex; justify-content: space-between; border-bottom: 2px solid #de9b35; padding-bottom: 10px; margin-bottom: 20px; }
+    .buy-category { margin-bottom: 20px; }
+    .buy-category h3 { color: #aaa; font-size: 16px; margin-bottom: 10px; text-transform: uppercase; }
+    .item-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+    .buy-btn {
+        background: #2b2b2b; border: 1px solid #444; color: white;
+        padding: 15px; text-align: left; cursor: pointer; transition: 0.2s;
+        display: flex; flex-direction: column; justify-content: space-between; height: 80px;
+    }
+    .buy-btn:hover { background: #3a3a3a; border-color: #de9b35; }
+    .buy-btn:active { background: #de9b35; color: black; }
+    .buy-btn .name { font-weight: bold; font-size: 14px; }
+    .buy-btn .price { color: #2ecc71; font-size: 14px; margin-top: 5px; }
+    .buy-btn.disabled { opacity: 0.5; cursor: not-allowed; }
+    #close-hint { position: absolute; bottom: 20px; right: 20px; color: #888; font-size: 12px; }
+    
+    #debug-coords { position: absolute; top: 10px; right: 10px; color: #ffff00; font-family: monospace; font-size: 16px; font-weight: bold; text-shadow: 1px 1px 2px black; }
+</style>
+
+<body>
+    <div id="loading-screen">
+        <h1>COUNTER-STRIKE 2</h1>
+        <div id="progress-bar-container"><div id="progress-bar"></div></div>
+        <p id="progress-text">Initializing...</p>
+    </div>
+
+    <div id="buy-menu">
+        <div id="buy-header"><h2>BUY MENU</h2><h2 id="menu-money">$ 800</h2></div>
+        <div class="buy-category">
+            <h3>Rifles</h3>
+            <div class="item-grid">
+                <button class="buy-btn" onclick="window.buyItem('ak47', 2700)"><span class="name">AK-47</span><span class="price">$2700</span></button>
+                <button class="buy-btn disabled"><span class="name">M4A1-S (Sold Out)</span><span class="price">$2900</span></button>
+            </div>
+        </div>
+        <div id="close-hint">Press 'B' or 'ESC' to close</div>
+    </div>
+
+    <div id="ui-layer">
+        <div id="crosshair-container">
+            <div class="ch-line ch-h"></div>
+            <div class="ch-line ch-v"></div>
+        </div>
+        
+        <div id="debug-coords">POS: 0, 0</div>
+        
+        <div id="kill-feed"></div>
+
+        <div id="hud">
+            <div class="stat-box"><span class="icon">✚</span> <span id="health-text">100</span></div>
+            <div class="stat-box">
+                <span id="money-text">$ 800</span>
+                <span id="ammo-text">--</span> <span id="ammo-sub">/ --</span>
+            </div>
+        </div>
+    </div>
+
+    <script type="module" src="/src/main.js"></script>
+</body>
+>>>>>>> b557f5a (Initial commit (ignore node_modules))
